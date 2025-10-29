@@ -1,0 +1,1368 @@
+{
+  "name": "CartAbandoned.r",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "72c6f7f5-3fb3-4c22-a0d7-a433632595cd",
+              "leftValue": "={{ new Date().getTime() - new Date($json.body.abandoned_at).getTime() }}",
+              "rightValue": "={{ 3600000 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2048,
+        608
+      ],
+      "id": "2bc75761-b38b-4189-bcb9-435889ea005c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=$json.checkout_id."
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1248,
+        928
+      ],
+      "id": "6375aa4e-35e4-4b19-95f4-526b9db9f8bc",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5f289823-56b4-41c7-8bcb-a6ed1a853af9",
+              "name": "cartMessage",
+              "value": "={{ \n  `Customer Name: ${$json.body.customer.first_name}\\nItems in Cart:\\n${$json.body.line_items.map(item => `- ${item.title} x ${item.quantity}`).join(\"\\n\")}\\nCart URL: ${$json.body.abandoned_checkout_url}`\n}}",
+              "type": "string"
+            },
+            {
+              "id": "16455946-35a0-4b07-87e6-8257692de280",
+              "name": "chatId",
+              "value": "={{ $json.body.customer.phone.replace('+', '') + '@c.us' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1808,
+        592
+      ],
+      "id": "d7705701-6923-448e-8df2-6174ec6cad09",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1664,
+        928
+      ],
+      "id": "77494868-d185-4672-b80d-41c9d47637a1",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "KUMrUpmkykvoKfaF",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1168,
+        576
+      ],
+      "id": "bbf6c2bf-072d-458e-ab2c-dc844e4810dd",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of items) {\n  // Get the message from the AI Agent node's output\n  const incomingMessage = item.json.output;\n\n  // Replace any instance of two or more newlines with a single newline\n  const cleanedMessage = incomingMessage.replace(/\\n+/g, '\\n');\n\n  // Add the JSON escape sequence for newlines\n  const finalMessage = cleanedMessage.replace(/\\n/g, '\\\\n');\n\n  // Update the output with the cleaned and formatted message\n  item.json.message = finalMessage;\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        576
+      ],
+      "id": "5d5b904c-c14d-4f96-8df9-b1f366faa888",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        1120
+      ],
+      "id": "23e9ee19-1311-4b46-ada7-66174882d68e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "KUMrUpmkykvoKfaF",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json['Cart Items'] }}",
+        "options": {
+          "systemMessage": "=## Overview\nYou are a highly skilled and persuasive AI sales copywriter specializing in e-commerce customer retention. Your task is to write a short, compelling message to motivate customers to complete their purchases after a first reminder was ignored.\n\n## Core Persuasion Principles:\n- **Scarcity & Urgency:** Use language that implies items are popular or in limited stock.\n- **Value:** Frame the message around the value the customer is missing out on.\n- **Exclusivity:** Mention the offer as a special, time-sensitive opportunity.\n\n## Rules:\n- Address the customer by their first name.\n- Remind them of the items they left in their cart.\n- Offer an exclusive discount code: **SAVEBIG**\n- Include the abandoned cart link with a strong call-to-action (CTA).\n- Maintain a friendly and natural tone while conveying a sense of urgency.\n- Output should be a single, short message ready for sending.\n- Do NOT include any extra explanations or formatting; only the final message text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        816
+      ],
+      "id": "1a95cfae-60e3-4b19-83dd-5f024cc183ea",
+      "name": "Second Reminder AI"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        1104
+      ],
+      "id": "4f6fb17c-3c00-4b0b-8ebd-a29d057ef9c4",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "KUMrUpmkykvoKfaF",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Log WhatsApp Success').item.json['Cart Items'] }}",
+        "options": {
+          "systemMessage": "=## Overview\nYou are a highly specialized AI assistant for final-stage e-commerce customer retention. Your task is to write a final, urgent message to a customer who has not responded to previous reminders.\n\n## Core Persuasion Principles:\n- **Urgency & Expiration:** Use language that makes it clear this is the last chance.\n- **Loss Aversion:** Frame the message around the value and discount the customer is about to lose.\n\n## Rules:\n- Address the customer by their first name.\n- State that this is the final reminder.\n- Remind them that their exclusive discount code is about to expire.\n- Include the abandoned cart link with a final, urgent call-to-action (CTA).\n- Maintain a direct and very concise tone.\n- Output should be a single, short message ready for sending.\n- Do NOT include any extra explanations or formatting; only the final message text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1536,
+        816
+      ],
+      "id": "feb0b863-100b-4c14-9052-df71b4a59fe6",
+      "name": "Third Reminder AI"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        608,
+        576
+      ],
+      "id": "d5da98e7-bd2e-4594-a1d8-dfa23f9376c7",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        576
+      ],
+      "id": "9d776c29-7704-47c5-b566-b529fe8fca95",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco",
+          "mode": "list",
+          "cachedResultName": "WhatsappDatabase",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Purchased",
+            "Email": "={{ $json.body.customer.email }}"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Cart Items",
+              "displayName": "Cart Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "WhatsApp Message Sent",
+              "displayName": "WhatsApp Message Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email Sent",
+              "displayName": "Email Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1936,
+        992
+      ],
+      "id": "93463c32-2577-4900-8332-ebdaf34e27f0",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHsVhMMoE6CaG4wp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ce2a892a-181b-453c-b61f-0cf4bf6c87be",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2320,
+        608
+      ],
+      "id": "e39f59c2-5f9d-4a42-8a81-38558154be67",
+      "name": "Abandoned  Cart Trigger",
+      "webhookId": "ce2a892a-181b-453c-b61f-0cf4bf6c87be"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.cartMessage}}",
+        "options": {
+          "systemMessage": "=## Overview\nYou are a highly skilled and persuasive AI sales copywriter specializing in e-commerce customer retention. Your task is to write compelling, personalized messages that motivate customers to complete their purchases.\n\n## Core Persuasion Principles:\n- **Scarcity & Urgency:** Use language that implies items are popular or in limited stock.\n- **Value:** Frame the message around the value the customer is missing out on.\n- **Exclusivity:** Mention the offer as a special, time-sensitive opportunity.\n\n## Rules:\n- Address the customer by their first name.\n- List the items in their cart in a clear and appealing way.\n- Include the abandoned cart link with a strong call-to-action (CTA).\n- Maintain a friendly and natural tone, while still conveying a sense of urgency.\n\n- Output should be a short, single message ready for sending.\n- Do not include any extra explanations or formatting; only the final message text."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1520,
+        576
+      ],
+      "id": "5bf92a8c-7648-49bb-a574-31d6f041d409",
+      "name": "Conversation Assistant"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://7105.api.greenapi.com/waInstance7105303949/sendMessage/7cbd6e3e18c042d0b553334aab8a64f1cc000999223b4834bc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $json.chatId }}\",\n  \"message\": \"{{ $json.message }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        576
+      ],
+      "id": "7e515b57-6fea-4115-8456-a6d093984389",
+      "name": "Send WhatsApp Message"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco",
+          "mode": "list",
+          "cachedResultName": "WhatsappDatabase",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Customer Name": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.first_name }} {{ $('Abandoned  Cart Trigger').item.json.body.customer.last_name }}",
+            "Phone Number": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.phone }}",
+            "Email": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.email }}",
+            "Cart Items": "={{ $('Edit Fields').item.json.cartMessage }}",
+            "WhatsApp Message Sent": "Yes",
+            "Email Sent": "No",
+            "Date": "={{ $now }}",
+            "Status": "Pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cart Items",
+              "displayName": "Cart Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhatsApp Message Sent",
+              "displayName": "WhatsApp Message Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Sent",
+              "displayName": "Email Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -352,
+        352
+      ],
+      "id": "15cb159a-1cf5-48fe-be8c-91e9b69dd059",
+      "name": "Log WhatsApp Success",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHsVhMMoE6CaG4wp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco",
+          "mode": "list",
+          "cachedResultName": "WhatsappDatabase",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Customer Name": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.first_name }} {{ $('Abandoned  Cart Trigger').item.json.body.customer.last_name }}",
+            "Phone Number": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.phone }}",
+            "Email": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.email }}",
+            "Cart Items": "={{ $('Edit Fields').item.json.cartMessage }}",
+            "WhatsApp Message Sent": "No",
+            "Email Sent": "Yes",
+            "Date": "={{ $now }}",
+            "Status": "Pending"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cart Items",
+              "displayName": "Cart Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhatsApp Message Sent",
+              "displayName": "WhatsApp Message Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email Sent",
+              "displayName": "Email Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -112,
+        800
+      ],
+      "id": "50504864-876b-429a-8e49-a9359587380a",
+      "name": "Record Email Sent",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHsVhMMoE6CaG4wp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "20a97c8d-0cc0-4c02-9b90-b43a97190047",
+              "leftValue": "={{ $json.idMessage }}",
+              "rightValue": "200",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -544,
+        576
+      ],
+      "id": "a20e4809-f78d-40eb-b3a8-0b71738bd953",
+      "name": "If4"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawOutput = $('Second Reminder AI').item.json.output;\nconst cleanOutput = rawOutput.replace(/\\n/g, ' ');\n\nreturn {\n  json: {\n    cleanedMessage: cleanOutput\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        816
+      ],
+      "id": "65951b8d-b033-46d5-9af0-4e9ce163b674",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco",
+          "mode": "list",
+          "cachedResultName": "WhatsappDatabase",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{ $('WaitFor 24hrs').item.json.Email }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        112,
+        592
+      ],
+      "id": "16f2671e-11f2-4c2e-a774-a4bd129eac80",
+      "name": "Retrieve Cart Data",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHsVhMMoE6CaG4wp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco",
+          "mode": "list",
+          "cachedResultName": "WhatsappDatabase",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1JMG0qOj3NMGgshMgqZ4m5lZiKBpInHW5f4g3epx8bco/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Email",
+              "lookupValue": "={{ $('WaitFor 24hrs').item.json.Email }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1184,
+        1056
+      ],
+      "id": "7d954ec8-470e-4dcb-8df7-50fa17b16722",
+      "name": "Retrieve Cart Data1",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jHsVhMMoE6CaG4wp",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -96,
+        592
+      ],
+      "id": "05fba20c-f184-4b50-b7ae-0b3ccbaad963",
+      "name": "WaitFor 24hrs",
+      "webhookId": "a3b2eeec-e551-4ef7-a4c7-82f19c0bd471"
+    },
+    {
+      "parameters": {
+        "amount": 45
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        816
+      ],
+      "id": "267c5643-da3d-4282-a255-8a67d7a1dcec",
+      "name": "WaitFor 3Days",
+      "webhookId": "a3b2eeec-e551-4ef7-a4c7-82f19c0bd471"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4c4f4d69-6349-4221-8d45-e5d9fa20f3d7",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Purchased",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        336,
+        592
+      ],
+      "id": "cf8ae936-adb3-4930-96cd-8a1dcc0eacf1",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4c4f4d69-6349-4221-8d45-e5d9fa20f3d7",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Purchased",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        816
+      ],
+      "id": "f0122cd1-bc9e-4120-bf34-c7438d181b1f",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://7105.api.greenapi.com/waInstance7105303949/sendMessage/7cbd6e3e18c042d0b553334aab8a64f1cc000999223b4834bc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $('Retrieve Cart Data').item.json['Phone Number'] }}@c.us\",\n  \"message\": \"{{ $json.cleanedMessage }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        816,
+        816
+      ],
+      "id": "cf9637fa-f587-445c-82ab-561cc1e81f20",
+      "name": "Send WhatsApp Message1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://7105.api.greenapi.com/waInstance7105303949/sendMessage/7cbd6e3e18c042d0b553334aab8a64f1cc000999223b4834bc",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $('Edit Fields').item.json.chatId }}\",\n  \"message\": \"{{ $('Third Reminder AI').item.json.output }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1936,
+        816
+      ],
+      "id": "fc06fdcd-e1a1-4b6a-a466-d9bfeef54e60",
+      "name": "Send WhatsApp Message2"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Abandoned  Cart Trigger').item.json.body.customer.email }}",
+        "subject": "=You left something behind, {{ $('Abandoned  Cart Trigger').item.json.body.customer.first_name }}",
+        "message": "=<!DOCTYPE html>\n<html>\n<head>\n<title>You left something behind!</title>\n</head>\n<body>\n<p>Hi {{ $('Abandoned  Cart Trigger').item.json.body.customer.first_name }},</p>\n<p>It looks like you left these great items in your cart:</p>\n<ul>\n    {{ $('Abandoned  Cart Trigger').item.json.body.line_items.map(item => `<li>${item.title} x ${item.quantity} - ${item.currency} ${item.price}</li>`).join(\"\\n\") }}\n</ul>\n<p>Total amount: {{ $('Abandoned  Cart Trigger').item.json.body.line_items.reduce((total, item) => total + (item.price * item.quantity), 0) }}</p>\n<p>Don't let them get away! You can easily complete your order here:</p>\n<a href=\"{{ $('Abandoned  Cart Trigger').item.json.body.abandoned_checkout_url }}\">Complete your order now</a>\n<p>We hope to see your order soon!</p>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        816
+      ],
+      "id": "596b4aae-2923-401f-baf6-2cba95cfaabc",
+      "name": "Send  Email",
+      "webhookId": "802938be-9d42-4708-85ea-f3199fc36bc9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "6T9tzLMuSfgSohTS",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Abandoned  Cart Trigger": [
+      {
+        "json": {
+          "headers": {
+            "host": "like-stephani-ibsystem-416a3556.koyeb.app",
+            "cf-ray": "970833e65947b71e-FRA",
+            "x-forwarded-for": "197.211.63.186",
+            "content-length": "644",
+            "x-forwarded-host": "like-stephani-ibsystem-416a3556.koyeb.app",
+            "accept-encoding": "gzip, br",
+            "postman-token": "9cded037-6cd2-451c-b68a-07c4900972e4",
+            "x-forwarded-proto": "https",
+            "cache-control": "no-cache",
+            "cf-ipcountry": "NG",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "x-forwarded-server": "FRA",
+            "accept": "*/*",
+            "cdn-loop": "cloudflare; loops=1",
+            "user-agent": "PostmanRuntime/7.45.0",
+            "content-type": "application/json",
+            "cf-connecting-ip": "197.211.63.186",
+            "x-request-id": "1a2a0dd1-ac82-98bc-a0c9-9f1947fa0915",
+            "x-koyeb-route": "17e24811-e6ef-4c59-ab06-2d106bc69e9e-8000_prod",
+            "x-koyeb-service-id": "17e24811-e6ef-4c59-ab06-2d106bc69e9e",
+            "x-koyeb-host-port": "17e24811-e6ef-4c59-ab06-2d106bc69e9e:8000",
+            "x-koyeb-original-host": "like-stephani-ibsystem-416a3556.koyeb.app",
+            "x-koyeb-deployment-id": "c38ed765-0f77-4ca1-96b4-97ac52e0bb8c",
+            "x-koyeb-glb": "fra",
+            "x-envoy-original-path": "/webhook-test/ce2a892a-181b-453c-b61f-0cf4bf6c87be",
+            "x-koyeb-backend": "fra",
+            "x-b3-traceid": "8c9def5496f1f55e",
+            "x-b3-spanid": "159147477d281d4c",
+            "x-b3-parentspanid": "51e1711a4d3f46fa",
+            "x-b3-sampled": "1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "checkout_id": "987654321",
+            "customer": {
+              "first_name": "Olasunkanmi",
+              "last_name": "Oyero",
+              "email": "oyeroolasunkanmi96@gmail.com",
+              "phone": "+2349066894084"
+            },
+            "line_items": [
+              {
+                "product_id": "1111",
+                "title": "iPhone 14 Pro Max",
+                "quantity": 1,
+                "price": "1200.00",
+                "currency": "USD"
+              },
+              {
+                "product_id": "2222",
+                "title": "Apple AirPods Pro",
+                "quantity": 1,
+                "price": "250.00",
+                "currency": "USD"
+              }
+            ],
+            "abandoned_checkout_url": "https://mystore.com/checkout/987654321",
+            "abandoned_at": "2025-08-17T10:45:00Z"
+          },
+          "webhookUrl": "http://0.0.0.0:8000/webhook-test/ce2a892a-181b-453c-b61f-0cf4bf6c87be",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Conversation Assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Conversation Assistant",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversation Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Second Reminder AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Second Reminder AI": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Third Reminder AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Third Reminder AI": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abandoned  Cart Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Assistant": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "If4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WhatsApp Success": {
+      "main": [
+        [
+          {
+            "node": "WaitFor 24hrs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Email Sent": {
+      "main": [
+        [
+          {
+            "node": "WaitFor 24hrs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If4": {
+      "main": [
+        [
+          {
+            "node": "Log WhatsApp Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send  Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Cart Data": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retrieve Cart Data1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WaitFor 24hrs": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Cart Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WaitFor 3Days": {
+      "main": [
+        [
+          {
+            "node": "Retrieve Cart Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Second Reminder AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Third Reminder AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Message1": {
+      "main": [
+        [
+          {
+            "node": "WaitFor 3Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send  Email": {
+      "main": [
+        [
+          {
+            "node": "Record Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "31c0cd5d-87ff-4adf-bcd6-13425270a27a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "147a791ad15a9b6572101fca2c78173cfb69d4bc3ebf50309896be89c9b76478"
+  },
+  "id": "kf4UZBWuIxThEYHI",
+  "tags": []
+}
